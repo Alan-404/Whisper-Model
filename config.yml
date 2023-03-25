@@ -1,0 +1,19 @@
+version: 1.0
+model: Speech Transformer
+training:
+  sample_rate: 16000
+  duration: 10
+  frame_size: 80
+  hop_length: 40
+  length_seq: 41
+  n_e: 12
+  n_d: 6
+  embedding_dim: 256
+  heads: 4
+  d_ff: 2048
+  dropout_rate: 0.1
+  eps: 0.1
+  activation: relu
+  optimizer: adam
+  m: 2
+  channels: 32
