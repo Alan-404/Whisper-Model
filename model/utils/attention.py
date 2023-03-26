@@ -26,7 +26,7 @@ class MutliHeadAttention(nn.Module):
         attention_scores = attention_scores/torch.sqrt(dk)
 
         if mask is not None:
-            attention_scores += mask*(-1e20)
+            attention_scores += mask*(-1e15)
 
         attention_weights = torch.softmax(attention_scores, dim=-1)
 

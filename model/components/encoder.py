@@ -11,7 +11,7 @@ class Encoder(nn.Module):
     def __init__(self, n: int, embedding_dim: int, heads: int, d_ff: int, dropout_rate: float, eps: float, activation: Union[str, Callable[[torch.Tensor], torch.Tensor]]) -> None:
         super().__init__()
         self.activation = F.gelu
-        self.layers = [EncoderLayer(embedding_dim=embedding_dim, heads=heads, d_ff=d_ff, dropout_rate=dropout_rate, eps=eps, activation=activation) for _ in range(n)]
+        self.layers = nn.ModuleList([EncoderLayer(embedding_dim=embedding_dim, heads=heads, d_ff=d_ff, dropout_rate=dropout_rate, eps=eps, activation=activation) for _ in range(n)])
 
         self.embedding_dim = embedding_dim
 

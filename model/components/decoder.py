@@ -12,7 +12,7 @@ class Decoder(nn.Module):
         super().__init__()
         self.embedding_layer = nn.Embedding(num_embeddings=token_size, embedding_dim=embedding_dim)
         self.positional_encoding = PositionalEncoding(embedding_dim=embedding_dim)
-        self.layers = [DecoderLayer(embedding_dim=embedding_dim, heads=heads, d_ff=d_ff, dropout_rate=dropout_rate, eps=eps, activation=activation) for _ in range(n)]
+        self.layers = nn.ModuleList([DecoderLayer(embedding_dim=embedding_dim, heads=heads, d_ff=d_ff, dropout_rate=dropout_rate, eps=eps, activation=activation) for _ in range(n)])
         self.to(device)
     def forward(self, x: torch.Tensor, encoder_output: torch.Tensor, padding_mask: torch.Tensor, look_ahead_mask: torch.Tensor):
         
