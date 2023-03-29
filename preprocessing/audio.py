@@ -41,26 +41,25 @@ class Padder:
         return signal
 
 class Extractor:
-    def __init__(self, frame_size: int, hop_length: int):
+    def __init__(self, sample_rate: int, frame_size: int, hop_length: int, n_mels: int):
+        self.sample_rate = sample_rate
         self.frame_size = frame_size
         self.hop_length = hop_length
+        self.n_mels = n_mels
 
-    def fourier_transform(self, signal):
+    """ def fourier_transform(self, signal):
         return librosa.stft(signal, n_fft=self.frame_size, hop_length=self.hop_length)[:-1]
     
-    def spectrum_transform(self, signal, sample_rate):
+    def spectrum_transform(self, signal):
         signal = np.abs(signal)
-        """ sgram_mel, _ = librosa.magphase(signal)
-        mel_scaled = librosa.feature.melspectrogram(sgram_mel, sample_rate) """
         return signal
 
     def log_spectrum_transform(self, spectrogram):
-        return librosa.amplitude_to_db(spectrogram)
+        return librosa.amplitude_to_db(spectrogram) """
 
-    def extract(self, signal, sample_rate):
-        stft = self.fourier_transform(signal)
-        spectrogram = self.spectrum_transform(stft, sample_rate)
-        log_spectrogram = self.log_spectrum_transform(spectrogram)
+    def extract(self, signal):
+        log_mels = librosa.feature.melspectrogram(y=signal, sr=self.sample_rate, n_fft=self.frame_size, hop_length=self.hop_length, n_mels=self.n_mels)
+        log_spectrogram = librosa.power_to_db(log_mels, ref=np.max)
         return log_spectrogram
 
 class Normaliser:
@@ -76,7 +75,7 @@ class Normaliser:
         return norm_signal
 
 class AudioProcessor:
-    def __init__(self, sample_rate: int, duration: float, mono: bool, frame_size: int, hop_length: int, mode: str = "constant", min: float = 0, max: float = 1):
+    def __init__(self, sample_rate: int, duration: float, mono: bool, frame_size: int, hop_length: int, n_mels: int, mode: str = "constant", min: float = -1, max: float = 1):
         self.sample_rate = sample_rate
         if sample_rate is None:
             self.sample_rate = 22050
@@ -84,27 +83,28 @@ class AudioProcessor:
         self.mono = mono
         self.frame_size = frame_size
         self.hop_length = hop_length
+        self.n_mels = n_mels
         self.mode = mode
         self.min = min
         self.max = max
         self.loader = Loader(sample_rate, duration, mono)
         self.padder = Padder(mode)
-        self.extractor = Extractor(frame_size, hop_length)
+        self.extractor = Extractor(sample_rate, frame_size, hop_length, n_mels)
         self.normaliser = Normaliser(min, max)
     def __process(self, file_path: str) -> np.ndarray:
         if file_path is None:
             return
         signal = self.loader.load_data(file_path)
         signal = self.padder.pad(signal, self.sample_rate*self.duration)
-        signal = self.extractor.extract(signal, self.sample_rate)
+        signal = self.extractor.extract(signal)
         signal = self.normaliser.normalise(signal)
         return signal
 
     def process(self, folder_path: str, list_names: list) -> np.ndarray:
         data = []
         for item in list_names:
-            if os.path.exists(f"{folder_path}/{item}.wav"):
-                signal = self.__process(f"{folder_path}/{item}.wav")
+            if os.path.exists(f"{folder_path}/{item}.flac"):
+                signal = self.__process(f"{folder_path}/{item}.flac")
                 data.append(signal)
 
         return np.array(data)

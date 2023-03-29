@@ -5,12 +5,14 @@ from model.utils.layer import EncoderLayer
 from typing import Union, Callable
 import numpy as np
 
+from model.utils.mel import MelExtractor
+
 device = torch.device('cuda' if torch.cuda.is_available() else "cpu")
 
 class Encoder(nn.Module):
-    def __init__(self, n: int, embedding_dim: int, heads: int, d_ff: int, dropout_rate: float, eps: float, activation: Union[str, Callable[[torch.Tensor], torch.Tensor]]) -> None:
+    def __init__(self, n: int, n_mels: int, embedding_dim: int, heads: int, d_ff: int, dropout_rate: float, eps: float, activation: Union[str, Callable[[torch.Tensor], torch.Tensor]]) -> None:
         super().__init__()
-        self.activation = F.gelu
+        self.mel_extractor = MelExtractor(mel_channels=n_mels, d_model=embedding_dim)
         self.layers = nn.ModuleList([EncoderLayer(embedding_dim=embedding_dim, heads=heads, d_ff=d_ff, dropout_rate=dropout_rate, eps=eps, activation=activation) for _ in range(n)])
 
         self.embedding_dim = embedding_dim
@@ -24,10 +26,10 @@ class Encoder(nn.Module):
         scaled_time = torch.arange(length)[:, np.newaxis] * inv_timescales[np.newaxis, :]
         return torch.cat([torch.sin(scaled_time), torch.cos(scaled_time)], dim=1)
     
-    def forward(self, x: torch.Tensor, length: int, padding_mask: torch.Tensor):
-        x = x + self.sinusoids(length=length, channels=self.embedding_dim).to(device)
-
+    def forward(self, x: torch.Tensor, padding_mask: torch.Tensor):
+        x = self.mel_extractor(x)
+        x = x.transpose(-1, -2)
+        x = x + self.sinusoids(length=x.size(1), channels=self.embedding_dim).to(device)
         for layer in self.layers:
             x = layer(x, padding_mask)
-
         return x

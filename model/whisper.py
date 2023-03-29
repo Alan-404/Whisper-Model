@@ -14,30 +14,19 @@ device = torch.device('cuda' if torch.cuda.is_available() else "cpu")
 
 
 class WhisperModel(nn.Module):
-    def __init__(self, token_size: int, n_mels: int, n: int, embedding_dim: int, heads: int, d_ff: int, dropout_rate: float, eps: float, activation: Union[str, Callable[[torch.Tensor], torch.Tensor]]) -> None:
+    def __init__(self, token_size: int, n_mels: int,  n: int, embedding_dim: int, heads: int, d_ff: int, dropout_rate: float, eps: float, activation: Union[str, Callable[[torch.Tensor], torch.Tensor]]) -> None:
         super().__init__()
-        self.conv1d_1 = nn.Conv1d(in_channels=n_mels, out_channels=embedding_dim, kernel_size=3, stride=1, padding=1)
-        self.conv1d_2 = nn.Conv1d(in_channels=embedding_dim, out_channels=embedding_dim, kernel_size=3, stride=1, padding=1)
-        self.encoder = Encoder(n=n, embedding_dim=embedding_dim, heads=heads, d_ff=d_ff, dropout_rate=dropout_rate, eps=eps, activation=activation)
+        self.encoder = Encoder(n=n, n_mels=n_mels, embedding_dim=embedding_dim, heads=heads, d_ff=d_ff, dropout_rate=dropout_rate, eps=eps, activation=activation)
         self.decoder = Decoder(token_size=token_size, n=n, embedding_dim=embedding_dim, heads=heads, d_ff=d_ff, dropout_rate=dropout_rate, eps=eps, activation=activation)
         self.classifer = nn.Linear(in_features=embedding_dim, out_features=token_size)
         self.to(device)
     def forward(self, encoder_inputs: torch.Tensor, decoder_inputs: torch.Tensor):
-        length = encoder_inputs.size(1)
+        # padding_mask = generate_padding_mask(torch.mean(encoder_inputs, dim=-1))
+        padding_mask = generate_padding_mask(decoder_inputs)
+        look_ahead_mask = generate_mask(decoder_inputs)
 
-        encoder_inputs = encoder_inputs.transpose(-1, -2)
-        encoder_inputs = self.conv1d_1(encoder_inputs)
-        encoder_inputs = F.relu(encoder_inputs)
-
-        encoder_inputs = self.conv1d_2(encoder_inputs)
-        encoder_inputs = F.relu(encoder_inputs)
-        encoder_inputs = encoder_inputs.transpose(-1, -2)
-
-        padding_mask = generate_padding_mask(torch.mean(encoder_inputs, dim=-1))
-        _, look_ahead_mask = generate_mask(decoder_inputs)
-
-        encoder_output = self.encoder(encoder_inputs, length, padding_mask)
-        decoder_output = self.decoder(decoder_inputs, encoder_output, padding_mask, look_ahead_mask)
+        encoder_output = self.encoder(encoder_inputs, None)
+        decoder_output = self.decoder(decoder_inputs, encoder_output, None, look_ahead_mask)
         output = self.classifer(decoder_output)
         return output
     
@@ -45,9 +34,9 @@ class Whisper:
     def __init__(self, 
                 token_size: int,
                 n_mels: int,
-                n: int = 6, 
-                embedding_dim: int = 512, 
-                heads: int = 8, 
+                n: int = 4, 
+                embedding_dim: int = 384, 
+                heads: int = 6, 
                 d_ff: int = 2048,
                 dropout_rate: float = 0.1, 
                 eps: float = 0.1, 
@@ -73,13 +62,6 @@ class Whisper:
         if os.path.exists(path):
             checkpoint = torch.load(path)
             self.model.load_state_dict(checkpoint['model_state_dict'])
-
-            for index, layer in enumerate(self.model.encoder.layers):
-                layer.load_state_dict(checkpoint['encoder_params'][index])
-
-            for index, layer in enumerate(self.model.decoder.layers):
-                layer.load_state_dict(checkpoint['decoder_params'][index])
-
             self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
             self.epoch = checkpoint['epoch']
 
@@ -92,18 +74,9 @@ class Whisper:
         
 
     def __save_model(self, path: str):
-        encoder_params = []
-        for layer in self.model.encoder.layers:
-            encoder_params.append(layer.state_dict())
-
-        decoder_params = []
-        for layer in self.model.decoder.layers:
-            decoder_params.append(layer.state_dict())
 
         torch.save({
             'model_state_dict': self.model.state_dict(),
-            'encoder_params': encoder_params,
-            'decoder_params': decoder_params,
             'optimizer_state_dict': self.optimizer.state_dict(),
             'epoch': self.epoch
         }, path)
@@ -142,10 +115,6 @@ class Whisper:
 
         loss = self.calculate_loss(outputs, labels)
 
-        """ _, preds = torch.max(outputs, dim=-1)
-
-        self.accuracy += self.metric.score(preds, labels) """
-
         loss.backward()
         self.optimizer.step()
 
@@ -158,13 +127,9 @@ class Whisper:
         delta = total - (total//mini_batch)*mini_batch
         for _ in range(epochs):
             for index, data in enumerate(dataloader):
-                encoder_inputs = data[0]
-                decoder_inputs = data[1][:, :-1]
-                labels = data[1][:, 1:]
-
-                encoder_inputs = encoder_inputs.to(device)
-                decoder_inputs = decoder_inputs.to(device)
-                labels = labels.to(device)
+                encoder_inputs = data[0].to(device)
+                decoder_inputs = data[1][:, :-1].to(device)
+                labels = data[1][:, 1:].to(device)
 
                 self.train_step(encoder_inputs, decoder_inputs, labels)
 
@@ -180,3 +145,16 @@ class Whisper:
 
         if self.checkpoint is not None:
             self.__save_model(self.checkpoint)
+
+    def predict(self, audio: torch.Tensor, decoder_in: torch.Tensor, limit_token: int, end_token: int):
+        for _ in range(limit_token):
+            output = self.model(audio, decoder_in)
+
+            _, token = torch.max(output, dim=-1)
+
+            if token == end_token:
+                break
+
+            decoder_in = torch.cat([decoder_in, token.unsequeeze(0)], dim=-1)
+
+        return decoder_in

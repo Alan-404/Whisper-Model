@@ -49,7 +49,7 @@ def program(n: int,
     text_processor.loadd_tokenizer(tokenizer_path)
 
     token_size = text_processor.tokenizer.num_tokens + 1
-    n_mels = audio_data.shape[-1]
+    n_mels = audio_data.shape[1]
 
     model = Whisper(token_size=token_size, n_mels=n_mels, n=n, embedding_dim=embedding_dim, heads=heads, d_ff=d_ff, dropout_rate=dropout_rate, eps=eps, learning_rate=learning_rate, checkpoint=checkpoint)
 
