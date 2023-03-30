@@ -56,7 +56,8 @@ class DecoderLayer(nn.Module):
         sub_layer_2 = self.residual_connection_2(cross_output, sub_layer_1)
 
         # sublayer 3
-        mlp_output = self.mlp(sub_layer_2)
+        mlp_input = sub_layer_2
+        mlp_output = self.mlp(mlp_input)
         sub_layer_3 = self.residual_connection_3(mlp_output, sub_layer_2)
 
         return sub_layer_3
