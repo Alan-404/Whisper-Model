@@ -9,11 +9,11 @@ import pickle
 parser = ArgumentParser()
 
 parser.add_argument('--sample_rate', type=int, default=16000)
-parser.add_argument('--duration', type=int, default=10)
+parser.add_argument('--duration', type=int, default=15)
 parser.add_argument("--frame_size", type=int, default=int(16000*0.025))
 parser.add_argument("--hop_length", type=int, default=int(16000*0.01))
 parser.add_argument("--n_mels", type=int, default=80)
-parser.add_argument("--length_seq", type=int, default=46)
+parser.add_argument("--length_seq", type=int, default=64)
 
 parser.add_argument("--raw_data", type=str)
 parser.add_argument("--audio_folder", type=str)

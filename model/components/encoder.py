@@ -27,8 +27,12 @@ class Encoder(nn.Module):
         return torch.cat([torch.sin(scaled_time), torch.cos(scaled_time)], dim=1)
     
     def forward(self, x: torch.Tensor, padding_mask: torch.Tensor):
-        x = self.mel_extractor(x)
-        x = x.transpose(-1, -2)
+        """ 
+            x: shape = (batch_size, n_mels, time)
+        """
+        x = self.mel_extractor(x) # (batch_size, d_model, time)
+
+        x = x.transpose(-1, -2) # (batch_size, time, d_model)
         x = x + self.sinusoids(length=x.size(1), channels=self.embedding_dim).to(device)
         for layer in self.layers:
             x = layer(x, padding_mask)

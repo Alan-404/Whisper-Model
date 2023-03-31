@@ -22,11 +22,11 @@ class WhisperModel(nn.Module):
         self.to(device)
     def forward(self, encoder_inputs: torch.Tensor, decoder_inputs: torch.Tensor):
         # padding_mask = generate_padding_mask(torch.mean(encoder_inputs, dim=-1))
-        padding_mask = generate_padding_mask(decoder_inputs)
-        look_ahead_mask = generate_mask(decoder_inputs)
+        padding_mask = generate_padding_mask(torch.mean(encoder_inputs, dim=1), pad_value=0.5)
+        look_ahead_mask = generate_mask(decoder_inputs, pad_value=0)
 
-        encoder_output = self.encoder(encoder_inputs, None)
-        decoder_output = self.decoder(decoder_inputs, encoder_output, None, look_ahead_mask)
+        encoder_output = self.encoder(encoder_inputs, padding_mask)
+        decoder_output = self.decoder(decoder_inputs, encoder_output, padding_mask, look_ahead_mask)
         output = self.classifer(decoder_output)
         return output
     
